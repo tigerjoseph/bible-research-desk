@@ -1,0 +1,8 @@
+node_modules/
+data/
+build/*.db
+build/*.db-wal
+build/*.db-shm
+public/db/*.db
+.vercel/
+.env

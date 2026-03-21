@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bible Research Desk</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Loading overlay (shown during initial load) -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-content">
+      <h1 class="loading-title">Bible Research Desk</h1>
+      <div class="loading-progress">
+        <div class="loading-progress-fill"></div>
+      </div>
+      <p class="loading-status">Initializing...</p>
+    </div>
+  </div>
+
+  <!-- Background progress indicator (bottom-right, for research.db.gz) -->
+  <div id="background-progress" class="bg-progress" style="display:none">
+    <div class="bg-progress-bar">
+      <div class="bg-progress-fill"></div>
+    </div>
+    <p class="bg-progress-status">Loading...</p>
+  </div>
+
+  <!-- Navigation: top-left, minimal -->
+  <nav class="nav">
+    <select id="book-select" class="book-select">
+      <!-- Populated by JS -->
+    </select>
+    <button id="prev-chapter" class="chapter-btn">&#8249;</button>
+    <button id="next-chapter" class="chapter-btn">&#8250;</button>
+    <span id="chapter-label" class="chapter-label"></span>
+    <select id="translation-select" class="translation-select">
+      <!-- Populated by JS -->
+    </select>
+  </nav>
+
+  <!-- Two-panel layout -->
+  <main class="panels">
+    <section id="bible-panel" class="bible-panel">
+      <div id="bible-text" class="bible-text">
+        <!-- Verses rendered here as spans -->
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section id="context-panel" class="context-panel">
+      <div id="context-content" class="context-content">
+        <p class="placeholder">Click a word or highlight a passage</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
