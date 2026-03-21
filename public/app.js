@@ -428,7 +428,7 @@ function showWordResearch(verseId, wordIdx, clickedText) {
 
   // Tab bar
   html += `<div class="tab-bar">`;
-  html += `<button class="tab-btn active" data-tab="word">Word<span class="tab-count">${wordsData.length}</span></button>`;
+  html += `<button class="tab-btn active" data-tab="word">Etymology<span class="tab-count">${wordsData.length}</span></button>`;
   if (hasCommentary) html += `<button class="tab-btn" data-tab="commentary">Commentary<span class="tab-count">${commCount}</span></button>`;
   if (hasFathers) html += `<button class="tab-btn" data-tab="fathers">Fathers<span class="tab-count">${fatherCount}</span></button>`;
   html += `</div>`;
