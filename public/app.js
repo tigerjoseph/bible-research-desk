@@ -347,7 +347,32 @@ function showWordResearch(verseId, wordIdx) {
     return;
   }
 
-  const wordsData = verseWordsCache[verseId];
+  let wordsData = verseWordsCache[verseId];
+
+  // Fallback: if cache is empty, query research DB directly
+  if ((!wordsData || wordsData.length === 0) && researchDb) {
+    try {
+      const stmt = researchDb.prepare(`
+        SELECT w.verse_id, w.position, w.english, w.strongs_number,
+               w.original, w.transliteration, w.lemma, w.pos, w.grammar,
+               sl.definition, sl.kjv_def, sl.derivation
+        FROM words w
+        LEFT JOIN strongs_lexicon sl ON w.strongs_number = sl.strongs_number
+        WHERE w.verse_id = ?
+        ORDER BY w.position
+      `);
+      stmt.bind([verseId]);
+      wordsData = [];
+      while (stmt.step()) wordsData.push(stmt.getAsObject());
+      stmt.free();
+      if (wordsData.length > 0) {
+        verseWordsCache[verseId] = wordsData;
+      }
+    } catch (e) {
+      console.warn('Direct word query failed:', e);
+    }
+  }
+
   if (!wordsData || wordsData.length === 0) {
     panel.innerHTML = '<p class="placeholder">No original-language data for this verse</p>';
     return;
