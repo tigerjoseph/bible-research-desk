@@ -96,7 +96,9 @@ async function initDB() {
   // Hide loading overlay — app is usable
   updateLoadingProgress('Ready', 1);
   setTimeout(() => {
-    document.getElementById('loading-overlay').style.display = 'none';
+    const overlay = document.getElementById('loading-overlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
   }, 200);
 
   // Phase 2: Load research.db.gz in background
@@ -108,8 +110,15 @@ async function initDB() {
       });
       updateBackgroundProgress('Initializing research data...', 0.95);
       researchDb = new SQL.Database(new Uint8Array(researchBuf));
+
+      // Reload current chapter so word data populates
+      loadChapter();
+
       updateBackgroundProgress('Research data ready', 1);
       setTimeout(hideBackgroundProgress, 1000);
+
+      // Phase 3: Pre-download AI model in background (silent)
+      preloadModel();
     } catch (err) {
       console.error('Failed to load research database:', err);
       updateBackgroundProgress('Research data unavailable', 1);
@@ -270,6 +279,7 @@ async function loadChapter() {
   verseWordsCache = wordsByVerse;
 
   const container = document.getElementById('bible-text');
+  container.style.opacity = '0';
   container.innerHTML = '';
 
   for (const v of verses) {
@@ -299,6 +309,12 @@ async function loadChapter() {
 
   document.getElementById('bible-panel').scrollTop = 0;
   resetContextPanel();
+
+  // Fade in
+  requestAnimationFrame(() => {
+    container.style.transition = 'opacity 250ms ease';
+    container.style.opacity = '1';
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -476,10 +492,18 @@ function showPassageResearch(verseIds, verseText) {
 // Synthesis (transformers.js + Qwen2.5)
 // ---------------------------------------------------------------------------
 
-async function loadModel(onProgress) {
-  const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
+let modelLoading = false; // prevent duplicate loads
 
-  generator = await pipeline('text-generation', 'onnx-community/Qwen2.5-0.5B-Instruct', {
+async function loadModel(onProgress) {
+  if (modelLoading) return; // already loading
+  modelLoading = true;
+
+  const transformers = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
+
+  // Run ONNX inference in a Web Worker so the main thread stays responsive
+  transformers.env.backends.onnx.wasm.proxy = true;
+
+  generator = await transformers.pipeline('text-generation', 'onnx-community/Qwen2.5-0.5B-Instruct', {
     dtype: 'q4',
     progress_callback: (progress) => {
       if (progress.status === 'progress' && onProgress) {
@@ -488,6 +512,30 @@ async function loadModel(onProgress) {
     }
   });
   modelReady = true;
+}
+
+// Silently preload model after research.db is ready
+async function preloadModel() {
+  try {
+    updateBackgroundProgress('Preparing AI model...', 0);
+    await loadModel((p) => {
+      updateBackgroundProgress('Preparing AI model...', p);
+    });
+    updateBackgroundProgress('AI model ready', 1);
+    setTimeout(hideBackgroundProgress, 1500);
+  } catch (err) {
+    console.warn('Model preload failed (will retry on demand):', err);
+    modelLoading = false; // allow retry
+    hideBackgroundProgress();
+  }
+}
+
+function waitForModel() {
+  return new Promise(resolve => {
+    const check = setInterval(() => {
+      if (modelReady) { clearInterval(check); resolve(); }
+    }, 500);
+  });
 }
 
 async function synthesize(verseText, commentaryContext) {
@@ -526,8 +574,15 @@ function initSynthesisTab(verseIds, verseText, commentary) {
   const target = document.getElementById('synthesis-content');
   if (!target) return;
 
-  if (!modelReady) {
-    // Show "Load AI Model" button
+  if (modelReady) {
+    // Model already loaded — run synthesis immediately
+    runSynthesis(target, verseText, commentary);
+  } else if (modelLoading) {
+    // Model is downloading in background — wait for it
+    target.innerHTML = '<p class="placeholder" style="margin-top:0">AI model is downloading... synthesis will run automatically.</p>';
+    waitForModel().then(() => runSynthesis(target, verseText, commentary));
+  } else {
+    // Model not started — show download button
     target.innerHTML = `
       <div class="model-loader">
         <p class="model-info">This feature uses an on-device AI model (~200MB) that runs entirely in your browser.</p>
@@ -546,18 +601,14 @@ function initSynthesisTab(verseIds, verseText, commentary) {
           btn.textContent = `Loading model... ${Math.round(progress * 100)}%`;
         });
         btn.textContent = 'Model loaded';
-
-        // Automatically run synthesis after model loads
         runSynthesis(target, verseText, commentary);
       } catch (err) {
         console.error('Model load failed:', err);
         btn.textContent = 'Failed to load model';
+        modelLoading = false;
         btn.disabled = false;
       }
     });
-  } else {
-    // Model already loaded — run synthesis immediately
-    runSynthesis(target, verseText, commentary);
   }
 }
 

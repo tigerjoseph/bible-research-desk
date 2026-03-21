@@ -198,6 +198,12 @@ body {
   font-size: 18px;
   color: #1a1a1a;
   line-height: 1.9;
+  animation: fadeIn 300ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Verse numbers */
@@ -280,7 +286,7 @@ body {
 
 .verse-ref {
   font-family: 'Lora', serif;
-  font-size: 12px;
+  font-size: 14px;
   font-variant: small-caps;
   letter-spacing: 0.08em;
   color: #777777;
@@ -295,7 +301,7 @@ body {
 
 .tab-btn {
   font-family: 'Lora', Georgia, serif;
-  font-size: 12px;
+  font-size: 13px;
   color: #999999;
   background: none;
   border: none;
@@ -361,7 +367,7 @@ body {
 }
 
 .word-original {
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   color: #1a1a1a;
 }
 
@@ -372,7 +378,7 @@ body {
 
 .word-english-inline {
   font-family: 'Lora', serif;
-  font-size: 14px;
+  font-size: 16px;
   color: #2a2a2a;
   font-weight: 700;
 }
@@ -380,22 +386,22 @@ body {
 .word-meta {
   font-family: 'Lora', serif;
   font-style: italic;
-  font-size: 11px;
+  font-size: 12px;
   color: #888888;
   margin-bottom: 2px;
 }
 
 .word-def {
   font-family: 'Lora', serif;
-  font-size: 14px;
+  font-size: 15px;
   color: #2a2a2a;
-  line-height: 1.7;
+  line-height: 1.75;
   margin-top: 6px;
 }
 
 .word-derivation {
   font-family: 'Lora', serif;
-  font-size: 13px;
+  font-size: 14px;
   color: #555555;
   line-height: 1.6;
   margin-top: 4px;
@@ -410,7 +416,7 @@ body {
 .commentary-source {
   font-variant: small-caps;
   color: #777777;
-  font-size: 12px;
+  font-size: 13px;
   margin-bottom: 8px;
   letter-spacing: 0.05em;
   cursor: pointer;
@@ -431,8 +437,8 @@ body {
 
 .commentary-body {
   font-family: 'Lora', Georgia, serif;
-  font-size: 14px;
-  line-height: 1.75;
+  font-size: 15px;
+  line-height: 1.8;
   color: #2a2a2a;
 }
 
@@ -449,7 +455,7 @@ body {
 }
 
 .father-author {
-  font-size: 12px;
+  font-size: 13px;
   color: #777777;
   font-style: italic;
   margin-bottom: 4px;
@@ -457,8 +463,8 @@ body {
 
 .father-quote {
   font-family: 'Lora', Georgia, serif;
-  font-size: 13px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.75;
   color: #333333;
 }
 
@@ -496,10 +502,11 @@ body {
 
 .synthesis-text {
   font-family: 'Lora', Georgia, serif;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.8;
   color: #2a2a2a;
   white-space: pre-wrap;
+  animation: fadeIn 300ms ease;
 }
 
 /* Model loader */
@@ -509,7 +516,7 @@ body {
 
 .model-info {
   font-family: 'Lora', Georgia, serif;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.7;
   color: #666666;
   margin-bottom: 12px;
