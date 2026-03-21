@@ -398,9 +398,11 @@ function showWordResearch(verseId, wordIdx) {
   if (hasFathers) html += `<button class="tab-btn" data-tab="fathers">Fathers<span class="tab-count">${fatherCount}</span></button>`;
   html += `</div>`;
 
-  // --- Word tab ---
+  // --- Word tab (carousel-style: clicked word centered, others fade) ---
   html += `<div class="tab-panel active" data-tab="word">`;
+  html += `<div class="word-carousel">`;
   html += renderWordCards(wordsData, wordIdx);
+  html += `</div>`;
   html += `</div>`;
 
   // --- Commentary tab ---
@@ -423,8 +425,15 @@ function showWordResearch(verseId, wordIdx) {
   // Scroll the clicked word into view within the Word tab
   requestAnimationFrame(() => {
     panel.querySelector('.research-panel').style.opacity = '1';
+    const carousel = panel.querySelector('.word-carousel');
     const highlighted = panel.querySelector('.word-card.highlighted');
-    if (highlighted) highlighted.scrollIntoView({ block: 'nearest' });
+    if (carousel && highlighted) {
+      // Center the highlighted card in the carousel
+      const carouselRect = carousel.getBoundingClientRect();
+      const cardRect = highlighted.getBoundingClientRect();
+      const scrollTarget = highlighted.offsetTop - carousel.offsetTop - (carouselRect.height / 2) + (cardRect.height / 2);
+      carousel.scrollTop = Math.max(0, scrollTarget);
+    }
   });
 
   bindTabEvents(panel);

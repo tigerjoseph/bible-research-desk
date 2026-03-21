@@ -342,10 +342,26 @@ body {
   opacity: 1;
 }
 
-/* --- Word tab (etymology) --- */
+/* --- Word tab (carousel) --- */
+.word-carousel {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  position: relative;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+  padding: 32px 0;
+  scrollbar-width: none;
+}
+
+.word-carousel::-webkit-scrollbar {
+  display: none;
+}
+
 .word-card {
-  padding: 16px 0;
+  padding: 12px 0;
   border-bottom: 1px solid #f0ece4;
+  opacity: 0.45;
+  transition: opacity 200ms ease;
 }
 
 .word-card:last-child {
@@ -355,8 +371,21 @@ body {
 .word-card.highlighted {
   background: #f9f6f0;
   margin: 0 -12px;
-  padding: 16px 12px;
+  padding: 20px 12px;
   border-radius: 4px;
+  opacity: 1;
+}
+
+.word-card.highlighted .word-original {
+  font-size: 1.6rem;
+}
+
+.word-card.highlighted .word-english-inline {
+  font-size: 18px;
+}
+
+.word-card.highlighted .word-def {
+  font-size: 16px;
 }
 
 .word-card-header {
