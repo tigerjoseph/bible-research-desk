@@ -349,26 +349,40 @@ function matchClickedWord(clickedWord, wordsData) {
   const needle = clickedWord.toLowerCase().replace(/[^a-z]/g, '');
   if (!needle) return 0;
 
-  // Pass 1: exact word boundary match in the english field
+  // Pass 1: exact word match in the english (interlinear gloss) field
   for (let i = 0; i < wordsData.length; i++) {
     const eng = (wordsData[i].english || '').toLowerCase().replace(/[<>\[\]]/g, '');
     const words = eng.split(/\s+/);
     if (words.includes(needle)) return i;
   }
 
-  // Pass 2: substring match
+  // Pass 2: substring match in english field
   for (let i = 0; i < wordsData.length; i++) {
     const eng = (wordsData[i].english || '').toLowerCase().replace(/[<>\[\]]/g, '');
     if (eng.includes(needle)) return i;
   }
 
-  // Pass 3: stem match (first 4+ chars)
-  if (needle.length >= 4) {
-    const stem = needle.slice(0, Math.max(4, needle.length - 2));
+  // Pass 3: search kjv_def field (e.g. "going" → kjv_def contains "go")
+  for (let i = 0; i < wordsData.length; i++) {
+    const kjv = (wordsData[i].kjv_def || '').toLowerCase();
+    const words = kjv.split(/[\s,;()\-]+/);
+    if (words.includes(needle)) return i;
+  }
+
+  // Pass 4: stem match (3+ chars) against english + kjv_def
+  if (needle.length >= 3) {
+    const stem = needle.slice(0, Math.max(3, needle.length - 2));
     for (let i = 0; i < wordsData.length; i++) {
       const eng = (wordsData[i].english || '').toLowerCase().replace(/[<>\[\]]/g, '');
-      if (eng.includes(stem)) return i;
+      const kjv = (wordsData[i].kjv_def || '').toLowerCase();
+      if (eng.includes(stem) || kjv.includes(stem)) return i;
     }
+  }
+
+  // Pass 5: search the full definition field
+  for (let i = 0; i < wordsData.length; i++) {
+    const def = (wordsData[i].definition || '').toLowerCase();
+    if (def.includes(needle)) return i;
   }
 
   return 0; // fallback to first word
