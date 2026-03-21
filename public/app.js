@@ -21,6 +21,7 @@ let currentChapter = 1;
 let currentTranslation = 'KJV';
 let maxChapter = 50;
 let verseWordsCache = {};
+let currentResearchVerse = null; // tracks which verse the right panel is showing
 
 // ---------------------------------------------------------------------------
 // Progressive DB Loading
@@ -427,44 +428,50 @@ function showWordResearch(verseId, wordIdx, clickedText) {
     return;
   }
 
+  const matchedIdx = clickedText ? matchClickedWord(clickedText, wordsData) : wordIdx;
+
+  // Same verse — just scroll the carousel, don't rebuild
+  if (currentResearchVerse === verseId) {
+    const cards = panel.querySelectorAll('.word-card');
+    cards.forEach(c => c.classList.remove('highlighted'));
+    const target = cards[matchedIdx];
+    if (target) {
+      target.classList.add('highlighted');
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
+
+  currentResearchVerse = verseId;
+
   const commentary = getCommentary([verseId]);
   const hasCommentary = commentary && (commentary.ivp.length || commentary.malina.length);
   const hasFathers = commentary && commentary.fathers.length;
 
-  // Count labels
   const commCount = (commentary ? commentary.ivp.length + commentary.malina.length : 0);
   const fatherCount = (commentary ? commentary.fathers.length : 0);
 
   let html = `<div class="research-panel" style="opacity:0;transition:opacity 180ms ease">`;
-
-  // Header
   html += `<div class="research-header"><div class="verse-ref">${esc(verseRefLabel(verseId))}</div></div>`;
 
-  // Tab bar
   html += `<div class="tab-bar">`;
   html += `<button class="tab-btn active" data-tab="word">Etymology<span class="tab-count">${wordsData.length}</span></button>`;
   if (hasCommentary) html += `<button class="tab-btn" data-tab="commentary">Commentary<span class="tab-count">${commCount}</span></button>`;
   if (hasFathers) html += `<button class="tab-btn" data-tab="fathers">Fathers<span class="tab-count">${fatherCount}</span></button>`;
   html += `</div>`;
 
-  // Match clicked English word to the correct original-language word
-  const matchedIdx = clickedText ? matchClickedWord(clickedText, wordsData) : wordIdx;
-
-  // --- Word tab (carousel-style: clicked word centered, others fade) ---
   html += `<div class="tab-panel active" data-tab="word">`;
   html += `<div class="word-carousel">`;
   html += renderWordCards(wordsData, matchedIdx);
   html += `</div>`;
   html += `</div>`;
 
-  // --- Commentary tab ---
   if (hasCommentary) {
     html += `<div class="tab-panel" data-tab="commentary">`;
     html += renderCommentarySections(commentary);
     html += `</div>`;
   }
 
-  // --- Fathers tab ---
   if (hasFathers) {
     html += `<div class="tab-panel" data-tab="fathers">`;
     html += renderFatherEntries(commentary.fathers);
@@ -474,7 +481,6 @@ function showWordResearch(verseId, wordIdx, clickedText) {
   html += `</div>`;
   panel.innerHTML = html;
 
-  // Scroll the clicked word into center of the carousel
   requestAnimationFrame(() => {
     panel.querySelector('.research-panel').style.opacity = '1';
     const highlighted = panel.querySelector('.word-card.highlighted');
@@ -487,11 +493,8 @@ function showWordResearch(verseId, wordIdx, clickedText) {
   panel.querySelectorAll('.word-card').forEach(card => {
     card.style.cursor = 'pointer';
     card.addEventListener('click', () => {
-      // Remove old highlight
       panel.querySelectorAll('.word-card.highlighted').forEach(c => c.classList.remove('highlighted'));
-      // Add highlight to clicked card
       card.classList.add('highlighted');
-      // Smooth scroll to center
       card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   });
@@ -505,6 +508,7 @@ function showWordResearch(verseId, wordIdx, clickedText) {
  * Tabs: Commentary | Fathers | Synthesis
  */
 function showPassageResearch(verseIds, verseText) {
+  currentResearchVerse = null;
   const panel = document.getElementById('context-content');
 
   if (!researchDb) {
@@ -860,6 +864,7 @@ function bindCollapseEvents(container) {
 }
 
 function resetContextPanel() {
+  currentResearchVerse = null;
   const panel = document.getElementById('context-content');
   panel.innerHTML = '<p class="placeholder">Click a word or highlight a passage</p>';
 }
