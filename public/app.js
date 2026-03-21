@@ -483,6 +483,19 @@ function showWordResearch(verseId, wordIdx, clickedText) {
     }
   });
 
+  // Make every word card clickable — click to re-center
+  panel.querySelectorAll('.word-card').forEach(card => {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', () => {
+      // Remove old highlight
+      panel.querySelectorAll('.word-card.highlighted').forEach(c => c.classList.remove('highlighted'));
+      // Add highlight to clicked card
+      card.classList.add('highlighted');
+      // Smooth scroll to center
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+
   bindTabEvents(panel);
   bindCollapseEvents(panel);
 }
@@ -737,7 +750,7 @@ function renderWordCards(wordsData, highlightIdx) {
     const derivation = esc(w.derivation || '');
 
     return `
-      <div class="${cls}">
+      <div class="${cls}" data-idx="${i}">
         <div class="word-card-header">
           <span class="word-original">${original}</span>
           ${english ? `<span class="word-arrow">\u2192</span><span class="word-english-inline">${english}</span>` : ''}
