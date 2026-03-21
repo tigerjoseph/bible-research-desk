@@ -339,7 +339,42 @@ function esc(str) {
  * Show the research panel for a clicked word.
  * Tabs: Word | Commentary | Fathers
  */
-function showWordResearch(verseId, wordIdx) {
+/**
+ * Match a clicked KJV word to the best original-language word index.
+ * The english column contains interlinear glosses like "and he called", "the light".
+ * We fuzzy-match the clicked word against these glosses.
+ */
+function matchClickedWord(clickedWord, wordsData) {
+  if (!wordsData || wordsData.length === 0) return 0;
+  const needle = clickedWord.toLowerCase().replace(/[^a-z]/g, '');
+  if (!needle) return 0;
+
+  // Pass 1: exact word boundary match in the english field
+  for (let i = 0; i < wordsData.length; i++) {
+    const eng = (wordsData[i].english || '').toLowerCase().replace(/[<>\[\]]/g, '');
+    const words = eng.split(/\s+/);
+    if (words.includes(needle)) return i;
+  }
+
+  // Pass 2: substring match
+  for (let i = 0; i < wordsData.length; i++) {
+    const eng = (wordsData[i].english || '').toLowerCase().replace(/[<>\[\]]/g, '');
+    if (eng.includes(needle)) return i;
+  }
+
+  // Pass 3: stem match (first 4+ chars)
+  if (needle.length >= 4) {
+    const stem = needle.slice(0, Math.max(4, needle.length - 2));
+    for (let i = 0; i < wordsData.length; i++) {
+      const eng = (wordsData[i].english || '').toLowerCase().replace(/[<>\[\]]/g, '');
+      if (eng.includes(stem)) return i;
+    }
+  }
+
+  return 0; // fallback to first word
+}
+
+function showWordResearch(verseId, wordIdx, clickedText) {
   const panel = document.getElementById('context-content');
 
   if (!researchDb) {
@@ -398,10 +433,13 @@ function showWordResearch(verseId, wordIdx) {
   if (hasFathers) html += `<button class="tab-btn" data-tab="fathers">Fathers<span class="tab-count">${fatherCount}</span></button>`;
   html += `</div>`;
 
+  // Match clicked English word to the correct original-language word
+  const matchedIdx = clickedText ? matchClickedWord(clickedText, wordsData) : wordIdx;
+
   // --- Word tab (carousel-style: clicked word centered, others fade) ---
   html += `<div class="tab-panel active" data-tab="word">`;
   html += `<div class="word-carousel">`;
-  html += renderWordCards(wordsData, wordIdx);
+  html += renderWordCards(wordsData, matchedIdx);
   html += `</div>`;
   html += `</div>`;
 
@@ -422,17 +460,12 @@ function showWordResearch(verseId, wordIdx) {
   html += `</div>`;
   panel.innerHTML = html;
 
-  // Scroll the clicked word into view within the Word tab
+  // Scroll the clicked word into center of the carousel
   requestAnimationFrame(() => {
     panel.querySelector('.research-panel').style.opacity = '1';
-    const carousel = panel.querySelector('.word-carousel');
     const highlighted = panel.querySelector('.word-card.highlighted');
-    if (carousel && highlighted) {
-      // Center the highlighted card in the carousel
-      const carouselRect = carousel.getBoundingClientRect();
-      const cardRect = highlighted.getBoundingClientRect();
-      const scrollTarget = highlighted.offsetTop - carousel.offsetTop - (carouselRect.height / 2) + (cardRect.height / 2);
-      carousel.scrollTop = Math.max(0, scrollTarget);
+    if (highlighted) {
+      highlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   });
 
@@ -825,7 +858,8 @@ function bindEvents() {
     // Highlight only the clicked word
     wordEl.classList.add('active-word');
 
-    showWordResearch(verseId, wordIdx);
+    const clickedText = wordEl.textContent.trim();
+    showWordResearch(verseId, wordIdx, clickedText);
   });
 
   // Text selection (passage highlight)

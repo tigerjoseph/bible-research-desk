@@ -351,6 +351,7 @@ body {
   mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
   padding: 32px 0;
   scrollbar-width: none;
+  scroll-behavior: smooth;
 }
 
 .word-carousel::-webkit-scrollbar {
