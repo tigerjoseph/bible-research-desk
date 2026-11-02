@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bible Research Desk</title>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <!-- Loading overlay (shown during initial load) -->
@@ -38,7 +38,21 @@
     <select id="translation-select" class="translation-select">
       <!-- Populated by JS -->
     </select>
+    <button id="open-books" class="nav-link" type="button">Books</button>
   </nav>
+
+  <!-- Full-screen commentary books -->
+  <div id="book-reader" class="book-reader" hidden>
+    <aside class="book-sidebar">
+      <button id="close-books" class="book-back" type="button">Scripture</button>
+      <div class="book-switch" role="tablist">
+        <button type="button" class="book-switch-btn active" data-volume="gospels">Gospels</button>
+        <button type="button" class="book-switch-btn" data-volume="john">John</button>
+      </div>
+      <nav id="book-chapters" class="book-chapters" aria-label="Chapters"></nav>
+    </aside>
+    <article id="book-content" class="book-content"></article>
+  </div>
 
   <!-- Two-panel layout -->
   <main class="panels">
@@ -58,6 +72,6 @@
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
