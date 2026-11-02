@@ -4,7 +4,7 @@
  * Progressive loading:
  *   1. db/verses.db.gz (~5MB) — Bible text, loads first → app immediately usable
  *   2. db/research.db.gz (~50MB) — words, commentary, lexicon → loaded in background
- *   3. transformers.js + Qwen2.5 (~200MB) — on-demand synthesis model
+ *   3. transformers.js + Qwen2.5-0.5B-Instruct q4 (~200MB) — on-demand synthesis model
  *
  * Right panel: tabbed research guide
  *   Word click  → Word | Commentary | Fathers tabs
@@ -117,6 +117,7 @@ async function initDB() {
 
       updateBackgroundProgress('Research data ready', 1);
       setTimeout(hideBackgroundProgress, 1000);
+      if (document.body.classList.contains('books-open')) renderBook();
 
       // Phase 3: Pre-download AI model in background (silent)
       preloadModel();
@@ -285,27 +286,25 @@ async function loadChapter() {
 
   for (const v of verses) {
     const verseId = `${currentAbbrev}.${currentChapter}.${v.verse}`;
+    const verseEl = document.createElement('p');
+    verseEl.className = 'verse';
 
-    // Verse number
     const numSpan = document.createElement('span');
     numSpan.className = 'verse-num';
     numSpan.textContent = v.verse;
-    container.appendChild(numSpan);
+    verseEl.appendChild(numSpan);
 
-    // Each word is a span — no gaps between them, just textContent includes leading space
     const textWords = v.text.split(/\s+/);
     for (let i = 0; i < textWords.length; i++) {
       const span = document.createElement('span');
       span.className = 'word';
       span.dataset.verse = verseId;
       span.dataset.wordIdx = i;
-      // Leading space inside the span so highlight is continuous (no white gaps)
       span.textContent = (i > 0 ? ' ' : '') + textWords[i];
-      container.appendChild(span);
+      verseEl.appendChild(span);
     }
 
-    // Trailing space between verses
-    container.appendChild(document.createTextNode(' '));
+    container.appendChild(verseEl);
   }
 
   document.getElementById('bible-panel').scrollTop = 0;
@@ -942,9 +941,27 @@ function bindEvents() {
   document.getElementById('prev-chapter').addEventListener('click', () => navigateChapter(-1));
   document.getElementById('next-chapter').addEventListener('click', () => navigateChapter(1));
 
+  document.getElementById('open-books').addEventListener('click', () => openBooks());
+  document.getElementById('close-books').addEventListener('click', () => closeBooks());
+  document.querySelectorAll('.book-switch-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const volume = LIBRARY.find(v => v.id === btn.dataset.volume);
+      readerVolume = volume.id;
+      readerPart = volume.parts[0].abbrev;
+      readerChapter = 1;
+      renderBook();
+      syncBookUrl();
+    });
+  });
+
   // Arrow keys
   document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (document.body.classList.contains('books-open')) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); navigateBook(-1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); navigateBook(1); }
+      return;
+    }
     if (e.key === 'ArrowLeft') { e.preventDefault(); navigateChapter(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); navigateChapter(1); }
   });
@@ -956,7 +973,11 @@ function bindEvents() {
     currentChapter = parseInt(params.get('chapter'), 10) || 1;
     document.getElementById('book-select').value = currentAbbrev;
     loadChapter();
+    if (params.get('view') === 'books') openBooks(false);
+    else closeBooks(false);
   });
+
+  if (new URLSearchParams(window.location.search).get('view') === 'books') openBooks(false);
 }
 
 function navigateChapter(delta) {
@@ -985,6 +1006,211 @@ function navigateChapter(delta) {
   }
   currentChapter = next;
   loadChapter();
+}
+
+// ---------------------------------------------------------------------------
+// Commentary books — Malina social-science commentary, already in research.db
+// Gospels volume: Matthew, Mark, Luke. John is its own volume.
+// ---------------------------------------------------------------------------
+
+const LIBRARY = [
+  {
+    id: 'gospels',
+    title: 'The Gospels',
+    kicker: 'Social-science commentary',
+    parts: [
+      { abbrev: 'MAT', name: 'Matthew', chapters: 28 },
+      { abbrev: 'MRK', name: 'Mark', chapters: 16 },
+      { abbrev: 'LUK', name: 'Luke', chapters: 24 }
+    ]
+  },
+  {
+    id: 'john',
+    title: 'John',
+    kicker: 'Social-science commentary',
+    parts: [
+      { abbrev: 'JHN', name: 'John', chapters: 21 }
+    ]
+  }
+];
+
+let readerVolume = 'gospels';
+let readerPart = 'MAT';
+let readerChapter = 1;
+
+function cleanBookText(raw) {
+  return String(raw)
+    .replace(/-\s*\n\s*/g, '')
+    .replace(/\s*\n\s*/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+function volumeById(id) {
+  return LIBRARY.find(v => v.id === id) || LIBRARY[0];
+}
+
+function partByAbbrev(volume, abbrev) {
+  return volume.parts.find(p => p.abbrev === abbrev) || volume.parts[0];
+}
+
+function flatChapters(volume) {
+  const entries = [];
+  for (const part of volume.parts) {
+    for (let ch = 1; ch <= part.chapters; ch++) {
+      entries.push({ abbrev: part.abbrev, name: part.name, chapter: ch });
+    }
+  }
+  return entries;
+}
+
+function getMalinaChapter(abbrev, chapter) {
+  if (!researchDb) return null;
+  const stmt = researchDb.prepare(
+    `SELECT verse_id, malina_text FROM commentary
+     WHERE malina_text IS NOT NULL AND malina_text != ''
+       AND verse_id GLOB ?`
+  );
+  stmt.bind([`${abbrev}.${chapter}.*`]);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  rows.sort((a, b) => {
+    const av = parseInt(a.verse_id.split('.')[2], 10);
+    const bv = parseInt(b.verse_id.split('.')[2], 10);
+    return av - bv;
+  });
+  const sections = [];
+  for (const row of rows) {
+    const verse = parseInt(row.verse_id.split('.')[2], 10);
+    if (!Number.isFinite(verse)) continue;
+    const text = cleanBookText(row.malina_text);
+    if (!text) continue;
+    const last = sections[sections.length - 1];
+    if (last && last.text === text) last.end = verse;
+    else sections.push({ start: verse, end: verse, text });
+  }
+  return sections;
+}
+
+function syncBookUrl() {
+  const url = new URL(window.location);
+  url.searchParams.set('view', 'books');
+  url.searchParams.set('volume', readerVolume);
+  url.searchParams.set('part', readerPart);
+  url.searchParams.set('bchapter', readerChapter);
+  history.pushState(null, '', url);
+}
+
+function openBooks(push) {
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('volume');
+  const volume = volumeById(requested || readerVolume);
+  readerVolume = volume.id;
+  const part = params.get('part');
+  readerPart = volume.parts.some(p => p.abbrev === part) ? part : volume.parts[0].abbrev;
+  const ch = parseInt(params.get('bchapter'), 10);
+  const partInfo = partByAbbrev(volume, readerPart);
+  readerChapter = ch >= 1 && ch <= partInfo.chapters ? ch : 1;
+  document.body.classList.add('books-open');
+  document.getElementById('book-reader').hidden = false;
+  renderBook();
+  if (push !== false) syncBookUrl();
+}
+
+function closeBooks(push) {
+  document.body.classList.remove('books-open');
+  document.getElementById('book-reader').hidden = true;
+  if (push === false) return;
+  const url = new URL(window.location);
+  url.searchParams.delete('view');
+  url.searchParams.delete('volume');
+  url.searchParams.delete('part');
+  url.searchParams.delete('bchapter');
+  history.pushState(null, '', url);
+}
+
+function renderBook() {
+  const volume = volumeById(readerVolume);
+  const part = partByAbbrev(volume, readerPart);
+  readerPart = part.abbrev;
+
+  document.querySelectorAll('.book-switch-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.volume === volume.id);
+  });
+
+  const nav = document.getElementById('book-chapters');
+  nav.innerHTML = '';
+  for (const p of volume.parts) {
+    if (volume.parts.length > 1) {
+      const label = document.createElement('div');
+      label.className = 'book-part-label';
+      label.textContent = p.name;
+      nav.appendChild(label);
+    }
+    for (let ch = 1; ch <= p.chapters; ch++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'book-chapter-btn';
+      btn.textContent = volume.parts.length > 1 ? `Chapter ${ch}` : `Chapter ${ch}`;
+      if (p.abbrev === readerPart && ch === readerChapter) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        readerPart = p.abbrev;
+        readerChapter = ch;
+        renderBook();
+        syncBookUrl();
+      });
+      nav.appendChild(btn);
+    }
+  }
+  const active = nav.querySelector('.book-chapter-btn.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+
+  const content = document.getElementById('book-content');
+  const heading = volume.parts.length > 1
+    ? `${part.name} ${readerChapter}`
+    : `Chapter ${readerChapter}`;
+  let html = `<div class="book-prose">`;
+  html += `<p class="book-kicker">${esc(volume.kicker)}</p>`;
+  html += `<h1 class="book-title">${esc(volume.title)}</h1>`;
+  html += `<p class="book-chapter-heading">${esc(heading)}</p>`;
+
+  if (!researchDb) {
+    html += `<p class="book-empty">The commentary is still loading.</p></div>`;
+    content.innerHTML = html;
+    content.scrollTop = 0;
+    return;
+  }
+
+  const sections = getMalinaChapter(readerPart, readerChapter);
+  if (!sections.length) {
+    html += `<p class="book-empty">No commentary on this chapter.</p></div>`;
+    content.innerHTML = html;
+    content.scrollTop = 0;
+    return;
+  }
+
+  for (const section of sections) {
+    const ref = section.start === section.end
+      ? `${part.name} ${readerChapter}:${section.start}`
+      : `${part.name} ${readerChapter}:${section.start}\u2013${section.end}`;
+    html += `<section class="book-section"><span class="book-ref">${esc(ref)}</span><p>${esc(section.text)}</p></section>`;
+  }
+  html += `</div>`;
+  content.innerHTML = html;
+  content.scrollTop = 0;
+}
+
+function navigateBook(delta) {
+  const volume = volumeById(readerVolume);
+  const entries = flatChapters(volume);
+  const idx = entries.findIndex(e => e.abbrev === readerPart && e.chapter === readerChapter);
+  const next = entries[idx + delta];
+  if (!next) return;
+  readerPart = next.abbrev;
+  readerChapter = next.chapter;
+  renderBook();
+  syncBookUrl();
 }
 
 // ---------------------------------------------------------------------------
